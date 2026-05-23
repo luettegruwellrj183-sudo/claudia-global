@@ -571,14 +571,103 @@ fn get_project_path_from_sessions(project_dir: &PathBuf) -> Result<String, Strin
     Err("Could not determine project path from session files".to_string())
 }
 
-/// Decodes a project directory name back to its original path
-/// The directory names in ~/.claude/projects are encoded paths
-/// DEPRECATED: Use get_project_path_from_sessions instead when possible
+/// Decodes a project directory name back to its original path.
+///
+/// Directories under `~/.claude/projects` are encoded by replacing path
+/// separators (and on Windows, the drive-letter colon) with `-`. The encoding
+/// is lossy when path components themselves contain dashes, so this is only a
+/// fallback — `get_project_path_from_sessions` should be preferred.
+///
+/// Decoding rules:
+///   * If the name starts with `<letter>--`, treat it as a Windows drive
+///     (`D--CC-8` → `D:/CC/8`).
+///   * Replace remaining `-` with `/`.
+///   * Collapse runs of `/` and trim a trailing one so the result doesn't
+///     render as `D//CC///////8//`.
+///
+/// The output always uses forward slashes; Windows accepts these in filesystem
+/// APIs and the frontend renders the path without further transformation.
 fn decode_project_path(encoded: &str) -> String {
-    // This is a fallback - the encoding isn't reversible when paths contain hyphens
-    // For example: -Users-mufeedvh-dev-jsonl-viewer could be /Users/mufeedvh/dev/jsonl-viewer
-    // or /Users/mufeedvh/dev/jsonl/viewer
-    encoded.replace('-', "/")
+    let chars: Vec<char> = encoded.chars().collect();
+
+    let (prefix, rest_start) = if chars.len() >= 3
+        && chars[0].is_ascii_alphabetic()
+        && chars[1] == '-'
+        && chars[2] == '-'
+    {
+        (format!("{}:", chars[0]), 3)
+    } else {
+        (String::new(), 0)
+    };
+
+    let mut body = String::with_capacity(chars.len());
+    let mut last_was_slash = !prefix.is_empty();
+    for ch in &chars[rest_start..] {
+        if *ch == '-' {
+            if !last_was_slash {
+                body.push('/');
+                last_was_slash = true;
+            }
+        } else {
+            body.push(*ch);
+            last_was_slash = false;
+        }
+    }
+    let body = body.trim_end_matches('/');
+
+    if prefix.is_empty() {
+        if body.is_empty() {
+            String::new()
+        } else {
+            body.to_string()
+        }
+    } else if body.is_empty() {
+        format!("{}/", prefix)
+    } else if body.starts_with('/') {
+        format!("{}{}", prefix, body)
+    } else {
+        format!("{}/{}", prefix, body)
+    }
+}
+
+#[cfg(test)]
+mod decode_project_path_tests {
+    use super::decode_project_path;
+
+    #[test]
+    fn windows_drive_with_runs_of_dashes_is_collapsed() {
+        assert_eq!(decode_project_path("D--CC-------8--"), "D:/CC/8");
+    }
+
+    #[test]
+    fn windows_drive_simple_path() {
+        assert_eq!(decode_project_path("C--Users-DHC"), "C:/Users/DHC");
+    }
+
+    #[test]
+    fn windows_drive_only() {
+        assert_eq!(decode_project_path("D--"), "D:/");
+    }
+
+    #[test]
+    fn posix_path_starts_with_slash() {
+        assert_eq!(decode_project_path("-Users-foo-bar"), "/Users/foo/bar");
+    }
+
+    #[test]
+    fn posix_path_collapses_runs() {
+        assert_eq!(decode_project_path("-Users--foo---bar"), "/Users/foo/bar");
+    }
+
+    #[test]
+    fn lowercase_drive_letter() {
+        assert_eq!(decode_project_path("d--CC"), "d:/CC");
+    }
+
+    #[test]
+    fn no_drive_no_leading_dash() {
+        assert_eq!(decode_project_path("foo-bar"), "foo/bar");
+    }
 }
 
 /// Extracts the first valid user message from a JSONL file

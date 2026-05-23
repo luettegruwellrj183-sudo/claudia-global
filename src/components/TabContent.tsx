@@ -207,7 +207,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
                         }}
                         onSessionClick={(session) => {
                           // Create a new chat tab instead of modifying the current projects tab
-                          const projectName = session.project_path.split("/").pop() || "Session";
+                          const projectName = session.project_path.split(/[\\/]+/).filter(Boolean).pop() || "Session";
                           const newTabId = createChatTab(session.id, projectName);
                           // Update the new tab with session data
                           updateTab(newTabId, {
@@ -301,7 +301,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ tab, isActive }) => {
             onBack={() => {
               // Go back to projects view in the same tab and preselect the originating project
               const session = tab.sessionData as Session | undefined;
-              const projectName = session?.project_path?.split("/").pop() || t.projects.title;
+              const projectName = session?.project_path?.split(/[\\/]+/).filter(Boolean).pop() || t.projects.title;
               updateTab(tab.id, {
                 type: "projects",
                 title: projectName || t.projects.title,
@@ -428,14 +428,14 @@ export const TabContent: React.FC = () => {
         // Update existing tab with session data and switch to it
         updateTab(existingTab.id, {
           sessionData: session,
-          title: session.project_path.split("/").pop() || "Session",
+          title: session.project_path.split(/[\\/]+/).filter(Boolean).pop() || "Session",
         });
         window.dispatchEvent(
           new CustomEvent("switch-to-tab", { detail: { tabId: existingTab.id } })
         );
       } else {
         // Create new tab for this session
-        const projectName = session.project_path.split("/").pop() || "Session";
+        const projectName = session.project_path.split(/[\\/]+/).filter(Boolean).pop() || "Session";
         const newTabId = createChatTab(session.id, projectName);
         // Update the new tab with session data
         updateTab(newTabId, {
@@ -480,13 +480,13 @@ export const TabContent: React.FC = () => {
       if (existingTab) {
         updateTab(existingTab.id, {
           sessionData: session,
-          title: session.project_path.split("/").pop() || "Session",
+          title: session.project_path.split(/[\\/]+/).filter(Boolean).pop() || "Session",
         });
         window.dispatchEvent(
           new CustomEvent("switch-to-tab", { detail: { tabId: existingTab.id } })
         );
       } else {
-        const projectName = session.project_path.split("/").pop() || "Session";
+        const projectName = session.project_path.split(/[\\/]+/).filter(Boolean).pop() || "Session";
         const newTabId = createChatTab(session.id, projectName);
         updateTab(newTabId, {
           sessionData: session,

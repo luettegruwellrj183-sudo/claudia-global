@@ -48,7 +48,7 @@ const ITEMS_PER_PAGE = 12;
  * @returns Project name (last segment of the path)
  */
 const getProjectName = (path: string): string => {
-  const parts = path.split("/").filter(Boolean);
+  const parts = path.split(/[\\/]+/).filter(Boolean);
   return parts[parts.length - 1] || path;
 };
 

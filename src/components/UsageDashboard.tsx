@@ -522,7 +522,7 @@ export const UsageDashboard: React.FC<UsageDashboardProps> = ({ onBack }) => {
                               className="text-xs font-mono text-muted-foreground truncate max-w-[200px]"
                               title={session.project_path}
                             >
-                              {session.project_path.split("/").slice(-2).join("/")}
+                              {session.project_path.split(/[\\/]+/).filter(Boolean).slice(-2).join("/")}
                             </span>
                           </div>
                           <span className="text-sm font-medium mt-1">{session.project_name}</span>
